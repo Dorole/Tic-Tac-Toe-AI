@@ -48,18 +48,7 @@ int main()
 	bool allowSymbolInput = true;
 
 	vector<Vector2i> winningCoordinates {};
-	winningCoordinates.reserve(30);
-
-	//debug
-	winningCoordinates.push_back(Vector2i(0, 0));
-	winningCoordinates.push_back(Vector2i(0, 0));
-	winningCoordinates.push_back(Vector2i(0, 0));
-
-	for (size_t i = 0; i < winningCoordinates.size(); i++)
-	{
-		cout << "Win coord: " << winningCoordinates.at(i).x << ", " << winningCoordinates.at(i).y << endl;
-	}
-
+	winningCoordinates.reserve(5);
 
 	//main loop > TO DO: refactor into a function
 	while (window.isOpen())
@@ -74,13 +63,9 @@ int main()
 					if (!allowSymbolInput) break;
 
 					Vector2i position = Mouse::getPosition(window);
-					//cout << "X: " << position.x << endl;
-					//cout << "Y: " << position.y << endl;
 					cout << "COORDINATES: " << position.x / 300 << ", " << position.y / 300 << endl;
 
 					currentIndices = Vector2i(position.x / 300, position.y / 300);
-					//cout << "Current indices: " << currentIndices.x << ", " << currentIndices.y << endl;
-					//cout << "Current coordinates: " << coordinates[currentIndices.x][currentIndices.y].x << ", " << coordinates[currentIndices.x][currentIndices.y].y << endl;
 
 					if (currentIndices.x <= 2 && currentIndices.y <= 2 &&
 						currentIndices.x >= 0 && currentIndices.y >= 0 &&
@@ -93,8 +78,6 @@ int main()
 						{
 							cout << "Press RMB to restart." << endl;
 							allowSymbolInput = false;
-
-							//debug
 							cout << "WIN COORDINATE 0: " << winningCoordinates.at(0).x << ", " << winningCoordinates.at(0).y << endl;
 						}
 
@@ -183,10 +166,6 @@ bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningCoor
 		{
 			cout << "\n********** The winner is " << currentPlayer << "! **********" << endl;
 			
-			//debug
-			winningCoordinates.clear();
-			winningCoordinates.at(0).x = 7;
-			winningCoordinates.at(0).y = 9;
 			winningCoordinates.push_back(Vector2i(7, 9));
 
 			return true;
