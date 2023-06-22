@@ -51,10 +51,13 @@ int main()
 	Vector2i currentIndices = Vector2i(0, 0);
 
 	bool isGameOver = false;
-	bool winFieldsSet = false;
+	bool winSequenceOver = false;
 
 	vector<Vector2i> winningIndices {};
-	winningIndices.reserve(5);
+	winningIndices.reserve(3);
+
+	int counter = 0;
+	int subCounter = 0;
 
 	//main loop > TO DO: refactor into a function
 	while (window.isOpen())
@@ -92,7 +95,7 @@ int main()
 					initGrid(grid);
 					winningIndices.clear();
 					isGameOver = false;
-					winFieldsSet = false;
+					winSequenceOver = false;
 				}
 			}
 
@@ -104,73 +107,139 @@ int main()
 		window.draw(boardSprite);
 
 		//draw x and o
-		for (size_t i = 0; i < 3; i++)
-		{
-			for (size_t j = 0; j < 3; j++)
-			{
-				if (grid[i][j] == ' ')
-					continue;
 
-				Sprite thisSprite;
-
-				if (grid[i][j] == 'x')
-					thisSprite = xSprite;
-				else if (grid[i][j] == 'o')
-					thisSprite = oSprite;
-				else if (grid[i][j] == 'w' && winFieldsSet)
-					thisSprite = thumbUpSprite;
-
-				thisSprite.setPosition(Vector2f(coordinates[i][j]));
-				window.draw(thisSprite);
-			}
-			
-		}
-
-		window.display();
-		
-		if (!winFieldsSet && isGameOver)
+		if (!isGameOver || winSequenceOver)
 		{
 			for (size_t i = 0; i < 3; i++)
 			{
-				int x = winningIndices.at(i).x;
-				int y = winningIndices.at(i).y;
+				for (size_t j = 0; j < 3; j++)
+				{
+					if (grid[i][j] == ' ')
+						continue;
 
-				grid[x][y] = 'w';
+					Sprite thisSprite;
+
+					if (grid[i][j] == 'x')
+						thisSprite = xSprite;
+					else if (grid[i][j] == 'o')
+						thisSprite = oSprite;
+					else if (grid[i][j] == 'w')
+						thisSprite = thumbUpSprite;
+
+					thisSprite.setPosition(Vector2f(coordinates[i][j]));
+					window.draw(thisSprite);
+				}
+
 			}
 
-			int counter = 0;
+			window.display();
+		}
+		
+		
+		if (!winSequenceOver && isGameOver)
+		{
+			for (size_t i = 0; i < 3; i++)
+			{
+				for (size_t j = 0; j < 3; j++)
+				{
+					if (grid[i][j] == ' ')
+						continue;
 
-			Sleep(500);
+					Sprite thisSprite;
 
-			while (counter < 3)
+					if (grid[i][j] == 'x')
+						thisSprite = xSprite;
+					else if (grid[i][j] == 'o')
+						thisSprite = oSprite;
+
+					thisSprite.setPosition(Vector2f(coordinates[i][j]));
+					window.draw(thisSprite);
+				}
+
+			}
+
+			Sleep(200);
+
+			Sprite whitebg = whiteBackground;
+			Sprite winSprite = thumbUpSprite;
+
+			int x = winningIndices.at(subCounter).x;
+			int y = winningIndices.at(subCounter).y;
+
+			whitebg.setPosition(Vector2f(coordinates[x][y]));
+			winSprite.setPosition(Vector2f(coordinates[x][y]));
+
+			window.draw(whitebg);
+			window.draw(winSprite);
+
+			if (subCounter != 2)
+				subCounter++;
+			else
+				subCounter = 0;
+
+			counter++;
+
+			if (counter == 10)
 			{
 				for (size_t i = 0; i < 3; i++)
 				{
-					//Sprite whitebg = whiteBackground;
-					Sprite winSprite = thumbUpSprite;
-
 					int x = winningIndices.at(i).x;
 					int y = winningIndices.at(i).y;
 
-					//whitebg.setPosition(Vector2f(coordinates[x][y]));
-					winSprite.setPosition(Vector2f(coordinates[x][y]));
-
-					//window.draw(whitebg);
-					window.draw(winSprite);
-					window.display();
-
-					Sleep(500);
-
-					//whitebg.setColor(Color::Transparent);
-					winSprite.setColor(Color::Transparent);					
+					grid[x][y] = 'w';
 				}
 
-				counter++;
-
+				winSequenceOver = true;
 			}
-
-			winFieldsSet = true;
+			
+			window.display();
 		}
+
+
+
+		//if (!winSequenceOver && isGameOver)
+		//{
+		//	for (size_t i = 0; i < 3; i++)
+		//	{
+		//		int x = winningIndices.at(i).x;
+		//		int y = winningIndices.at(i).y;
+
+		//		grid[x][y] = 'w';
+		//	}
+
+		//	int counter = 0;
+
+		//	Sleep(500);
+
+		//	while (counter < 3)
+		//	{
+		//		for (size_t i = 0; i < 3; i++)
+		//		{
+		//			//Sprite whitebg = whiteBackground;
+		//			Sprite winSprite = thumbUpSprite;
+
+		//			int x = winningIndices.at(i).x;
+		//			int y = winningIndices.at(i).y;
+
+		//			//whitebg.setPosition(Vector2f(coordinates[x][y]));
+		//			winSprite.setPosition(Vector2f(coordinates[x][y]));
+
+		//			//window.draw(whitebg);
+		//			window.draw(winSprite);
+		//			window.display();
+
+		//			Sleep(500);
+
+		//			//whitebg.setColor(Color::Transparent);
+		//			winSprite.setColor(Color::Transparent);					
+		//		}
+
+		//		counter++;
+
+		//	}
+
+		//	winSequenceOver = true;
+		//}
 	}
 }
 
