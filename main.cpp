@@ -2,6 +2,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <Windows.h>
 
 using namespace std;
 using namespace sf;
@@ -11,7 +12,7 @@ using namespace sf;
 
 void initGrid(char grid[3][3]);
 void initCoordinates(Vector2f coordinates[3][3]);
-bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningCoordinates);
+bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningIndices);
 void switchPlayer(char& currentPlayer);
 
 int main()
@@ -36,6 +37,10 @@ int main()
 	thumbUpTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Textures/thumb_up.png");
 	Sprite thumbUpSprite(thumbUpTexture);
 
+	Texture plainWhiteTexture;
+	plainWhiteTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Textures/white_bg.png");
+	Sprite whiteBackground(plainWhiteTexture);
+
 	char grid[3][3];
 	initGrid(grid);
 
@@ -45,10 +50,11 @@ int main()
 	char currentPlayer = 'x';
 	Vector2i currentIndices = Vector2i(0, 0);
 
-	bool allowSymbolInput = true;
+	bool isGameOver = false;
+	bool winFieldsSet = false;
 
-	vector<Vector2i> winningCoordinates {};
-	winningCoordinates.reserve(5);
+	vector<Vector2i> winningIndices {};
+	winningIndices.reserve(5);
 
 	//main loop > TO DO: refactor into a function
 	while (window.isOpen())
@@ -60,11 +66,9 @@ int main()
 			{
 				if (event.mouseButton.button == Mouse::Button::Left)
 				{
-					if (!allowSymbolInput) break;
+					if (isGameOver) break;
 
 					Vector2i position = Mouse::getPosition(window);
-					cout << "COORDINATES: " << position.x / 300 << ", " << position.y / 300 << endl;
-
 					currentIndices = Vector2i(position.x / 300, position.y / 300);
 
 					if (currentIndices.x <= 2 && currentIndices.y <= 2 &&
@@ -73,23 +77,22 @@ int main()
 					{
 						grid[currentIndices.x][currentIndices.y] = currentPlayer;
 
-						//this check shouldn't be here? (only input checks?)
-						if (gameOver(grid, currentPlayer, winningCoordinates))
+						if (gameOver(grid, currentPlayer, winningIndices))
 						{
 							cout << "Press RMB to restart." << endl;
-							allowSymbolInput = false;
-							cout << "WIN COORDINATE 0: " << winningCoordinates.at(0).x << ", " << winningCoordinates.at(0).y << endl;
+							isGameOver = true;
 						}
 
 						switchPlayer(currentPlayer);
 					}
 				}
 
-				//debug restart
 				if (event.mouseButton.button == Mouse::Button::Right)
 				{
 					initGrid(grid);
-					allowSymbolInput = true;
+					winningIndices.clear();
+					isGameOver = false;
+					winFieldsSet = false;
 				}
 			}
 
@@ -114,14 +117,60 @@ int main()
 					thisSprite = xSprite;
 				else if (grid[i][j] == 'o')
 					thisSprite = oSprite;
+				else if (grid[i][j] == 'w' && winFieldsSet)
+					thisSprite = thumbUpSprite;
 
 				thisSprite.setPosition(Vector2f(coordinates[i][j]));
 				window.draw(thisSprite);
 			}
+			
 		}
 
 		window.display();
+		
+		if (!winFieldsSet && isGameOver)
+		{
+			for (size_t i = 0; i < 3; i++)
+			{
+				int x = winningIndices.at(i).x;
+				int y = winningIndices.at(i).y;
 
+				grid[x][y] = 'w';
+			}
+
+			int counter = 0;
+
+			Sleep(500);
+
+			while (counter < 3)
+			{
+				for (size_t i = 0; i < 3; i++)
+				{
+					//Sprite whitebg = whiteBackground;
+					Sprite winSprite = thumbUpSprite;
+
+					int x = winningIndices.at(i).x;
+					int y = winningIndices.at(i).y;
+
+					//whitebg.setPosition(Vector2f(coordinates[x][y]));
+					winSprite.setPosition(Vector2f(coordinates[x][y]));
+
+					//window.draw(whitebg);
+					window.draw(winSprite);
+					window.display();
+
+					Sleep(500);
+
+					//whitebg.setColor(Color::Transparent);
+					winSprite.setColor(Color::Transparent);					
+				}
+
+				counter++;
+
+			}
+
+			winFieldsSet = true;
+		}
 	}
 }
 
@@ -157,27 +206,32 @@ void switchPlayer(char& currentPlayer)
 	currentPlayer == 'x' ? currentPlayer = 'o' : currentPlayer = 'x';
 }
 
-bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningCoordinates)
+bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningIndices)
 {
-	//check rows
+	//check columns
 	for (int i = 0; i < 3; i++)
 	{
 		if (grid[i][0] != ' ' && grid[i][0] == currentPlayer && (grid[i][0] == grid[i][1] && grid[i][1] == grid[i][2]))
 		{
 			cout << "\n********** The winner is " << currentPlayer << "! **********" << endl;
-			
-			winningCoordinates.push_back(Vector2i(7, 9));
+
+			for (size_t j = 0; j < 3; j++)
+				winningIndices.push_back(Vector2i(i, j));
 
 			return true;
 		}
 	}
 
-	//check columns
+	//check rows
 	for (int j = 0; j < 3; j++)
 	{
 		if (grid[0][j] != ' ' && grid[0][j] == currentPlayer && (grid[0][j] == grid[1][j] && grid[1][j] == grid[2][j]))
 		{
 			cout << "\n********** The winner is " << currentPlayer << "! **********" << endl;
+
+			for (size_t i = 0; i < 3; i++)
+				winningIndices.push_back(Vector2i(i, j));
+
 			return true;
 		}
 	}
@@ -188,6 +242,21 @@ bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningCoor
 			(grid[0][2] == grid[1][1] && grid[1][1] == grid[2][0])))
 	{
 		cout << "\n********** The winner is " << currentPlayer << "! **********" << endl;
+		
+		if (grid[0][0] == grid[1][1] && grid[1][1] == grid[2][2])
+		{
+			for (size_t i = 0; i < 3; i++)
+				winningIndices.push_back(Vector2i(i, i));
+		}
+		else
+		{
+			for (size_t i = 0, j = 2; i < 3; i++, j--)
+			{
+				winningIndices.push_back(Vector2i(i, j));
+			}
+		}
+
+
 		return true;
 	}
 
@@ -202,7 +271,6 @@ bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningCoor
 	}
 
 	//all fields full, but no winner
-	cout << "\n********** Wow, you're equally good! **********" << endl;
+	cout << "\n********** Wow, you're equally good! **********" << endl;	
 	return true;
 }
-
