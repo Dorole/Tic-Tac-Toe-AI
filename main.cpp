@@ -1,55 +1,113 @@
 #include <iostream>
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <vector>
+#include <random>
+#include <string>
 #include <Windows.h>
+
+#include "TextMessages.h"
+#include "SoundPlayer.h"
+#include "GameState.h"
+
 
 using namespace std;
 using namespace sf;
 
-//to declare a winner: change the symbols in winning fields to a thumb-up or something, one by one
-//should have room below for messages
-
-void initGrid(char grid[3][3]);
-void initCoordinates(Vector2f coordinates[3][3]);
-bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningIndices);
-void switchPlayer(char& currentPlayer);
 
 int main()
 {
-	//TO DO: Add room for system messages below board
-	RenderWindow window(VideoMode(900, 900), "Tic-Tac-Toe", Style::Close);
+	TextMessages textMessages;
+	SoundPlayer soundPlayer;
+	GameState gameState;
 
+	RenderWindow window(VideoMode(900, 1100), "Tic-Tac-Toe", Style::Close);
+
+	// **************** TEXTURES ****************
 	Texture boardTexture;
-	boardTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Textures/ttt_board.png");
+	boardTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/board_v2.png");
 	Sprite boardSprite(boardTexture);
 
 	Texture oTexture;
-	oTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Textures/o.png");
+	oTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/o.png");
 	Sprite oSprite(oTexture);
 
 
 	Texture xTexture;
-	xTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Textures/x.png");
+	xTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/x.png");
 	Sprite xSprite(xTexture);
 
 	Texture thumbUpTexture;
-	thumbUpTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Textures/thumb_up.png");
+	thumbUpTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/thumb_up.png");
 	Sprite thumbUpSprite(thumbUpTexture);
 
 	Texture plainWhiteTexture;
-	plainWhiteTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Textures/white_bg.png");
+	plainWhiteTexture.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/white_bg.png");
 	Sprite whiteBackground(plainWhiteTexture);
 
+	// **************** TEXT ****************
+
+	Font font;
+	font.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/AnagramShadowNF.ttf");
+	Text message;
+	message.setFont(font);
+	message.setCharacterSize(80);
+
+	Vector2f startTextPosition = Vector2f(280, 940);
+	Vector2f winTextPosition = Vector2f(300, 940);
+	Color xTextColor = Color(63, 133, 164);
+	Color oTextColor = Color(213, 77, 221);
+
+	Text xScoreText;
+	xScoreText.setFont(font);
+	xScoreText.setCharacterSize(100);
+	xScoreText.setPosition(Vector2f(60, 930));
+	xScoreText.setFillColor(xTextColor);
+
+	Text oScoreText;
+	oScoreText.setFont(font);
+	oScoreText.setCharacterSize(100);
+	oScoreText.setPosition(Vector2f(770, 930));
+	oScoreText.setFillColor(oTextColor);
+
+	// **************** AUDIO ****************
+
+	SoundBuffer buffer;
+	buffer.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/plop1.flac");
+	Sound clickSound_one(buffer);
+
+	SoundBuffer bufferTwo;
+	bufferTwo.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/plop2.wav");
+	Sound clickSound_two(bufferTwo);
+
+	vector<Sound> sounds {clickSound_one, clickSound_two};
+
+	SoundBuffer restartBuffer;
+	restartBuffer.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/restart.flac");
+	Sound restartSound(restartBuffer);
+
+	SoundBuffer winBuffer;
+	winBuffer.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/win.wav");
+	Sound winSound(winBuffer);
+
+	SoundBuffer tieBuffer;
+	tieBuffer.loadFromFile("C:/Users/dorot/Desktop/C++/Tic-Tac-Toe-AI/Resources/tie.wav");
+	Sound tieSound(tieBuffer);
+
+	// **************** GAME VARIABLES ****************
+
 	char grid[3][3];
-	initGrid(grid);
+	gameState.initGrid(grid);
 
 	Vector2f coordinates[3][3];
-	initCoordinates(coordinates);
+	gameState.initCoordinates(coordinates);
 
 	char currentPlayer = 'x';
 	Vector2i currentIndices = Vector2i(0, 0);
 
+	//ovo u neki state machine?
+	bool newSession = true;
 	bool isGameOver = false;
 	bool winSequenceOver = false;
 
@@ -59,7 +117,11 @@ int main()
 	int counter = 0;
 	int subCounter = 0;
 
-	//main loop > TO DO: refactor into a function
+	int xScore = 0;
+	int oScore = 0;
+
+	// ************************************** GAME WINDOW **************************************
+
 	while (window.isOpen())
 	{
 		Event event;
@@ -67,6 +129,7 @@ int main()
 		{
 			if (event.type == Event::EventType::MouseButtonPressed)
 			{
+				//if valid field selected, set the field to current player's symbol
 				if (event.mouseButton.button == Mouse::Button::Left)
 				{
 					if (isGameOver) break;
@@ -80,22 +143,48 @@ int main()
 					{
 						grid[currentIndices.x][currentIndices.y] = currentPlayer;
 
-						if (gameOver(grid, currentPlayer, winningIndices))
+						if (newSession)
+						{
+							newSession = false;
+						}
+
+						if (gameState.gameOver(grid, currentPlayer, winningIndices))
 						{
 							cout << "Press RMB to restart." << endl;
 							isGameOver = true;
+
+							if (winningIndices.size() > 1)
+							{
+								currentPlayer == 'x' ? xScore++ : oScore++;
+								winSound.play();
+							}
+							else
+							{
+								tieSound.play();
+							}
 						}
 
-						switchPlayer(currentPlayer);
+						if (!isGameOver)
+							gameState.switchPlayer(currentPlayer);
 					}
+
+					soundPlayer.playRandomSound(sounds);
 				}
 
+				//reset session
 				if (event.mouseButton.button == Mouse::Button::Right)
 				{
-					initGrid(grid);
-					winningIndices.clear();
-					isGameOver = false;
-					winSequenceOver = false;
+					gameState.initGrid(grid);
+					gameState.resetVector(winningIndices);
+					gameState.resetBool(isGameOver, false);
+					gameState.resetBool(winSequenceOver, false);
+					gameState.resetBool(newSession, true);
+					gameState.resetCounter(counter);
+					gameState.resetCounter(subCounter);
+
+					gameState.switchPlayer(currentPlayer);
+
+					restartSound.play();
 				}
 			}
 
@@ -106,59 +195,71 @@ int main()
 		//draw board
 		window.draw(boardSprite);
 
-		//draw x and o
-
-		if (!isGameOver || winSequenceOver)
+		//draw messages
+		if (newSession || isGameOver)
 		{
-			for (size_t i = 0; i < 3; i++)
+			if (newSession)
 			{
-				for (size_t j = 0; j < 3; j++)
+				message.setString(textMessages.displayStartMessage(currentPlayer));
+				message.setPosition(startTextPosition);
+				message.setFillColor(textMessages.setTextColor(currentPlayer, xTextColor, oTextColor));
+			}
+			else if (isGameOver)
+			{
+				if (winningIndices.size() > 1)
 				{
-					if (grid[i][j] == ' ')
-						continue;
-
-					Sprite thisSprite;
-
-					if (grid[i][j] == 'x')
-						thisSprite = xSprite;
-					else if (grid[i][j] == 'o')
-						thisSprite = oSprite;
-					else if (grid[i][j] == 'w')
-						thisSprite = thumbUpSprite;
-
-					thisSprite.setPosition(Vector2f(coordinates[i][j]));
-					window.draw(thisSprite);
+					message.setString(textMessages.displayWinMessage(currentPlayer));
+					message.setPosition(winTextPosition);
+					message.setFillColor(textMessages.setTextColor(currentPlayer, xTextColor, oTextColor));
 				}
-
+				else
+				{
+					message.setString("Tie!");
+					message.setPosition(Vector2f(400,940));
+					message.setFillColor(Color::Black);
+				}
 			}
 
-			window.display();
 		}
-		
-		
-		if (!winSequenceOver && isGameOver)
+		else
 		{
-			for (size_t i = 0; i < 3; i++)
+			message.setString("");
+		}
+
+		window.draw(message);
+
+		xScoreText.setString(textMessages.displayCurrentScore(xScore));
+		oScoreText.setString(textMessages.displayCurrentScore(oScore));
+		window.draw(xScoreText);
+		window.draw(oScoreText);
+
+		//draw x and o (and thumb-up)
+		for (size_t i = 0; i < 3; i++)
+		{
+			for (size_t j = 0; j < 3; j++)
 			{
-				for (size_t j = 0; j < 3; j++)
-				{
-					if (grid[i][j] == ' ')
-						continue;
+				if (grid[i][j] == ' ')
+					continue;
 
-					Sprite thisSprite;
+				Sprite thisSprite;
 
-					if (grid[i][j] == 'x')
-						thisSprite = xSprite;
-					else if (grid[i][j] == 'o')
-						thisSprite = oSprite;
+				if (grid[i][j] == 'x')
+					thisSprite = xSprite;
+				else if (grid[i][j] == 'o')
+					thisSprite = oSprite;
+				else if (grid[i][j] == 'w')
+					thisSprite = thumbUpSprite;
 
-					thisSprite.setPosition(Vector2f(coordinates[i][j]));
-					window.draw(thisSprite);
-				}
-
+				thisSprite.setPosition(Vector2f(coordinates[i][j]));
+				window.draw(thisSprite);
 			}
 
-			Sleep(200);
+		}
+
+		//animate win screen
+		if (isGameOver && !winSequenceOver && winningIndices.size() > 1)
+		{
+			Sleep(150);
 
 			Sprite whitebg = whiteBackground;
 			Sprite winSprite = thumbUpSprite;
@@ -191,155 +292,10 @@ int main()
 
 				winSequenceOver = true;
 			}
-			
-			window.display();
 		}
 
+		window.display();
 
-
-		//if (!winSequenceOver && isGameOver)
-		//{
-		//	for (size_t i = 0; i < 3; i++)
-		//	{
-		//		int x = winningIndices.at(i).x;
-		//		int y = winningIndices.at(i).y;
-
-		//		grid[x][y] = 'w';
-		//	}
-
-		//	int counter = 0;
-
-		//	Sleep(500);
-
-		//	while (counter < 3)
-		//	{
-		//		for (size_t i = 0; i < 3; i++)
-		//		{
-		//			//Sprite whitebg = whiteBackground;
-		//			Sprite winSprite = thumbUpSprite;
-
-		//			int x = winningIndices.at(i).x;
-		//			int y = winningIndices.at(i).y;
-
-		//			//whitebg.setPosition(Vector2f(coordinates[x][y]));
-		//			winSprite.setPosition(Vector2f(coordinates[x][y]));
-
-		//			//window.draw(whitebg);
-		//			window.draw(winSprite);
-		//			window.display();
-
-		//			Sleep(500);
-
-		//			//whitebg.setColor(Color::Transparent);
-		//			winSprite.setColor(Color::Transparent);					
-		//		}
-
-		//		counter++;
-
-		//	}
-
-		//	winSequenceOver = true;
-		//}
 	}
 }
 
-void initGrid(char grid[3][3])
-{
-	for (size_t i = 0; i < 3; i++)
-	{
-		for (size_t j = 0; j < 3; j++)
-		{
-			grid[i][j] = ' ';
-		}
-	}
-}
-
-void initCoordinates(Vector2f coordinates[3][3])
-{
-	for (size_t i = 0; i < 3; i++)
-	{
-		float incrementY = i * 300;
-
-		for (size_t j = 0; j < 3; j++)
-		{
-			float incrementX = j * 300;
-
-			coordinates[j][i] = Vector2f(incrementX, incrementY);
-			cout << "Coordinate: " << coordinates[j][i].x << ", " << coordinates[j][i].y << endl;
-		}
-	}
-}
-
-void switchPlayer(char& currentPlayer)
-{
-	currentPlayer == 'x' ? currentPlayer = 'o' : currentPlayer = 'x';
-}
-
-bool gameOver(char grid[3][3], char currentPlayer, vector<Vector2i>& winningIndices)
-{
-	//check columns
-	for (int i = 0; i < 3; i++)
-	{
-		if (grid[i][0] != ' ' && grid[i][0] == currentPlayer && (grid[i][0] == grid[i][1] && grid[i][1] == grid[i][2]))
-		{
-			cout << "\n********** The winner is " << currentPlayer << "! **********" << endl;
-
-			for (size_t j = 0; j < 3; j++)
-				winningIndices.push_back(Vector2i(i, j));
-
-			return true;
-		}
-	}
-
-	//check rows
-	for (int j = 0; j < 3; j++)
-	{
-		if (grid[0][j] != ' ' && grid[0][j] == currentPlayer && (grid[0][j] == grid[1][j] && grid[1][j] == grid[2][j]))
-		{
-			cout << "\n********** The winner is " << currentPlayer << "! **********" << endl;
-
-			for (size_t i = 0; i < 3; i++)
-				winningIndices.push_back(Vector2i(i, j));
-
-			return true;
-		}
-	}
-
-	//check diagonals
-	if (grid[1][1] != ' ' && grid[1][1] == currentPlayer &&
-		((grid[0][0] == grid[1][1] && grid[1][1] == grid[2][2]) ||
-			(grid[0][2] == grid[1][1] && grid[1][1] == grid[2][0])))
-	{
-		cout << "\n********** The winner is " << currentPlayer << "! **********" << endl;
-		
-		if (grid[0][0] == grid[1][1] && grid[1][1] == grid[2][2])
-		{
-			for (size_t i = 0; i < 3; i++)
-				winningIndices.push_back(Vector2i(i, i));
-		}
-		else
-		{
-			for (size_t i = 0, j = 2; i < 3; i++, j--)
-			{
-				winningIndices.push_back(Vector2i(i, j));
-			}
-		}
-
-
-		return true;
-	}
-
-	//check for empty spaces
-	for (int i = 0; i < 3; i++)
-	{
-		for (int j = 0; j < 3; j++)
-		{
-			if (grid[i][j] == ' ')
-				return false;
-		}
-	}
-
-	//all fields full, but no winner
-	cout << "\n********** Wow, you're equally good! **********" << endl;	
-	return true;
-}
